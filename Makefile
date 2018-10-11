@@ -1,5 +1,6 @@
 CC = gcc
-CFLAGS = -g -O0 -fno-stack-protector
+# CFLAGS = -s -Os -fno-stack-protector
+CFLAGS = -g -O2 -fno-stack-protector
 NASM = nasm
 NASM_FLAGS = -f elf64
 
