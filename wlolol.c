@@ -1,4 +1,5 @@
 #include <asm/fcntl.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <stdint.h>
 #include "syscalls.h"
@@ -17,11 +18,11 @@ static int parse_hw_addr(char *hex_string, uint8_t *hw_addr);
 
 
 int main(int argc, char **argv) {
+	// Parse args
 	if(argc != 2) {
 		help();
 		return 1;
 	}
-
 	uint8_t hw_addr[HW_ADDR_LEN];
 	int rc = parse_hw_addr(argv[1], hw_addr);
 	if(rc < 0) {
@@ -29,6 +30,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	// Create wake on LAN packet for address
 	uint8_t packet[PACKET_LEN];
 	init_packet(packet, hw_addr);
 
@@ -41,6 +43,22 @@ int main(int argc, char **argv) {
 		write(STDERR, msg, sizeof(msg));
 		return 1;
 	}
+        
+        struct sockaddr_in src_addr;
+	src_addr.sin_family = AF_INET;
+	src_addr.sin_addr.s_addr = INADDR_ANY;
+	src_addr.sin_port = 0;
+	rc = bind(sock, (struct sockaddr *)&src_addr, sizeof(src_addr));
+	if(rc < 0) {
+		char msg[] = "Failed to bind UDP socket\n";
+		write(STDERR, msg, sizeof(msg));
+		return 1;
+	}
+
+	struct sockaddr_in dest_addr;
+	src_addr.sin_family = AF_INET;
+	src_addr.sin_addr.s_addr = {192,168,1,255};
+	src_addr.sin_port = htons(9);
 
         return 0;
 }

@@ -1,7 +1,7 @@
 bits 64
 
 section .text
-    global open, write, close, exit, socket, setsockopt
+    global open, write, close, exit, socket, setsockopt, bind
 
 open:
     mov rax, 2h
@@ -29,5 +29,11 @@ socket:
 
 setsockopt:
     mov rax, 36h
+    mov r10, rcx
+    syscall
+    ret
+
+bind:
+    mov rax, 31h
     syscall
     ret
