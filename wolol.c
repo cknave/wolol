@@ -15,6 +15,7 @@
 static void help();
 static void init_packet(uint8_t *packet, uint8_t *hw_addr);
 static int parse_hw_addr(char *hex_string, uint8_t *hw_addr);
+static in_addr_t pack_ip_address(uint8_t octets[4]);
 
 
 int main(int argc, char **argv) {
@@ -29,11 +30,13 @@ int main(int argc, char **argv) {
 		help();
 		return 1;
 	}
+	// TODO: parse broadcast address
 
 	// Create wake on LAN packet for address
 	uint8_t packet[PACKET_LEN];
 	init_packet(packet, hw_addr);
 
+	// Create a UDP socket for broadcast
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
 	int broadcast = 1;
 	rc = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast,
@@ -44,6 +47,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
         
+	// Bind to any address
         struct sockaddr_in src_addr;
 	src_addr.sin_family = AF_INET;
 	src_addr.sin_addr.s_addr = INADDR_ANY;
@@ -55,10 +59,19 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	// Send to broadcast address
 	struct sockaddr_in dest_addr;
-	src_addr.sin_family = AF_INET;
-	src_addr.sin_addr.s_addr = {192,168,1,255};
-	src_addr.sin_port = htons(9);
+	dest_addr.sin_family = AF_INET;
+	dest_addr.sin_addr.s_addr = pack_ip_address(
+			(uint8_t[]){192, 168, 1, 255});
+	dest_addr.sin_port = htons(9);
+	ssize_t sent = sendto(sock, packet, PACKET_LEN, 0,
+			(struct sockaddr *)&dest_addr, sizeof(dest_addr));
+	if(sent != PACKET_LEN) {
+		char msg[] = "Failed to send packet\n";
+		write(STDERR, msg, sizeof(msg));
+		return 1;
+	}
 
         return 0;
 }
@@ -135,3 +148,12 @@ static int parse_hw_addr(char *hex_string, uint8_t *hw_addr) {
 	}
 	return 0;
 }
+
+static in_addr_t pack_ip_address(uint8_t octets[4]) {
+	return (octets[3] << 24) | (octets[2] << 16) | (octets[1] << 8) |
+		octets[0];
+}
+
+// uint16_t htons(uint16_t port) {
+// 	return (port << 8) | (port >> 8);
+// }
