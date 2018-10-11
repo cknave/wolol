@@ -1,5 +1,7 @@
 #include <asm/fcntl.h>
+#include <sys/socket.h>
 #include <stdint.h>
+#include "syscalls.h"
 
 #define STDIN		0
 #define STDOUT		1
@@ -8,11 +10,6 @@
 #define HEADER_LEN	6
 #define HW_ADDR_LEN	6
 #define PACKET_LEN	HEADER_LEN + 16*HW_ADDR_LEN
-
-int open(const char *path, int flags, int mode);
-int write(int fd, const void *buf, int count);
-int close(int fd);
-void exit(int status);
 
 static void help();
 static void init_packet(uint8_t *packet, uint8_t *hw_addr);
@@ -35,14 +32,15 @@ int main(int argc, char **argv) {
 	uint8_t packet[PACKET_LEN];
 	init_packet(packet, hw_addr);
 
-        int fd = open("packet.bin", O_CREAT | O_WRONLY, 0644);
-        if(fd < 0) {
-            char msg[] = "Failed to open packet.bin\n";
-            write(STDERR, msg, sizeof(msg));
-            return 1;
-        }
-        write(fd, packet, PACKET_LEN);
-        close(fd);
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	int broadcast = 1;
+	rc = setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast,
+			sizeof(broadcast));
+	if(rc < 0) {
+		char msg[] = "Failed to set broadcast socket option\n";
+		write(STDERR, msg, sizeof(msg));
+		return 1;
+	}
 
         return 0;
 }

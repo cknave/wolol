@@ -1,6 +1,6 @@
 CC = gcc
 # CFLAGS = -s -Os -fno-stack-protector
-CFLAGS = -g -O2 -fno-stack-protector
+CFLAGS = -g -O0 -fno-stack-protector
 NASM = nasm
 NASM_FLAGS = -f elf64
 
@@ -11,6 +11,8 @@ wlolol: $(OBJS)
 
 clean:
 	rm -f $(OBJS)
+
+wlolol.o: wlolol.c syscalls.h
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
