@@ -1,11 +1,18 @@
+CC = gcc
+CFLAGS = -g -O0 -fno-stack-protector
 NASM = nasm
-CFLAGS = -O2
+NASM_FLAGS = -f elf64
 
-wlolol: wlolol.o syscalls.o
-	$(CC) $(CFLAGS) -s -static -nostdlib -nostartfiles -o $@ $<
+OBJS = start.o syscalls.o wlolol.o
 
-.c.o:
+wlolol: $(OBJS)
+	$(CC) $(CFLAGS) -static -nostdlib -nostartfiles -o $@ $^
+
+clean:
+	rm -f $(OBJS)
+
+%.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-.asm.o:
+%.o: %.asm
 	$(NASM) $(NASM_FLAGS) -o $@ $<
