@@ -14,23 +14,28 @@
 
 static void help();
 static void init_packet(uint8_t *packet, uint8_t *hw_addr);
-static int parse_hw_addr(char *hex_string, uint8_t *hw_addr);
-static in_addr_t pack_ip_address(uint8_t octets[4]);
+static int parse_hw_address(char *hex_string, uint8_t *hw_addr);
+static int parse_ip_address(char *ip_string_ptr, in_addr_t *ip_addr);
 
 
 int main(int argc, char **argv) {
 	// Parse args
-	if(argc != 2) {
+	if(argc != 3) {
 		help();
 		return 1;
 	}
-	uint8_t hw_addr[HW_ADDR_LEN];
-	int rc = parse_hw_addr(argv[1], hw_addr);
+	in_addr_t broadcast_addr;
+	int rc = parse_ip_address(argv[1], &broadcast_addr);
 	if(rc < 0) {
 		help();
 		return 1;
 	}
-	// TODO: parse broadcast address
+	uint8_t hw_addr[HW_ADDR_LEN];
+	rc = parse_hw_address(argv[2], hw_addr);
+	if(rc < 0) {
+		help();
+		return 1;
+	}
 
 	// Create wake on LAN packet for address
 	uint8_t packet[PACKET_LEN];
@@ -46,9 +51,9 @@ int main(int argc, char **argv) {
 		write(STDERR, msg, sizeof(msg));
 		return 1;
 	}
-        
+	
 	// Bind to any address
-        struct sockaddr_in src_addr;
+	struct sockaddr_in src_addr;
 	src_addr.sin_family = AF_INET;
 	src_addr.sin_addr.s_addr = INADDR_ANY;
 	src_addr.sin_port = 0;
@@ -62,8 +67,7 @@ int main(int argc, char **argv) {
 	// Send to broadcast address
 	struct sockaddr_in dest_addr;
 	dest_addr.sin_family = AF_INET;
-	dest_addr.sin_addr.s_addr = pack_ip_address(
-			(uint8_t[]){192, 168, 1, 255});
+	dest_addr.sin_addr.s_addr = broadcast_addr;
 	dest_addr.sin_port = htons(9);
 	ssize_t sent = sendto(sock, packet, PACKET_LEN, 0,
 			(struct sockaddr *)&dest_addr, sizeof(dest_addr));
@@ -73,27 +77,27 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-        return 0;
+	return 0;
 }
 
 
 static void help() {
-    const char msg[] = "USAGE: wlolol <address>\n";
-    write(STDERR, msg, sizeof(msg));
+	const char msg[] = "USAGE: wlolol <broadcast ip> <wake mac>\n";
+	write(STDERR, msg, sizeof(msg));
 }
 
 static void init_packet(uint8_t *packet, uint8_t *hw_addr) {
-    for(int i = 0; i < HEADER_LEN; i++) {
-        packet[i] = 0xff;
-    }
-    for(int i = HEADER_LEN; i < PACKET_LEN; i += HW_ADDR_LEN) {
-        packet[i]   = hw_addr[0];
-        packet[i+1] = hw_addr[1];
-        packet[i+2] = hw_addr[2];
-        packet[i+3] = hw_addr[3];
-        packet[i+4] = hw_addr[4];
-        packet[i+5] = hw_addr[5];
-    }
+	for(int i = 0; i < HEADER_LEN; i++) {
+		packet[i] = 0xff;
+	}
+	for(int i = HEADER_LEN; i < PACKET_LEN; i += HW_ADDR_LEN) {
+		packet[i]   = hw_addr[0];
+		packet[i+1] = hw_addr[1];
+		packet[i+2] = hw_addr[2];
+		packet[i+3] = hw_addr[3];
+		packet[i+4] = hw_addr[4];
+		packet[i+5] = hw_addr[5];
+	}
 }
 
 // parse a single character ('F' => 15)
@@ -131,7 +135,7 @@ static int parse_hex_byte(char **sp) {
 
 // parse a hardware address, setting 6 bytes of hw_addr
 // return -1 on bad input
-static int parse_hw_addr(char *hex_string, uint8_t *hw_addr) {
+static int parse_hw_address(char *hex_string, uint8_t *hw_addr) {
 	char *ptr = hex_string;
 	char separator = -1;
 	for(int i = 0; i < HW_ADDR_LEN; i++) {
@@ -154,6 +158,42 @@ static in_addr_t pack_ip_address(uint8_t octets[4]) {
 		octets[0];
 }
 
-// uint16_t htons(uint16_t port) {
-// 	return (port << 8) | (port >> 8);
-// }
+static int parse_ip_address(char *ip_string_ptr, in_addr_t *ip_addr) {
+	char *ptr = ip_string_ptr;
+	uint8_t octets[4];
+
+	// Parse 4 octets
+	for(int i = 0; i < 4; i++) {
+		int number = 0;
+		// Parse up to 3 digits
+		for(int j = 0; j < 3; j++) {
+			// First character must be a digit
+			char c = *ptr++;
+			if(c < '0' || c > '9')  {
+				return -1;
+			}
+			int digit = c - '0';
+			number = 10*number + digit;
+			// Stop if the next character is the end of an octet
+			if(*ptr == '.' || *ptr == '\0') {
+				break;
+			}
+		}
+		// Number must be in 0..255
+		if(number > 255) {
+			return -1;
+		}
+		// The first 3 digits must be separated by a '.'
+		if(i < 3 && *ptr != '.') {
+			return -1;
+		}
+		// The last digit must be followed by a '\0'
+		if(i == 3 && *ptr != '\0') {
+			return -1;
+		}
+		ptr++;
+		octets[i] = number;
+	}
+	*ip_addr = pack_ip_address(octets);
+	return 0;
+}
