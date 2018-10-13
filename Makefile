@@ -1,16 +1,19 @@
-CC = gcc
-CFLAGS = -s -Os -fno-stack-protector
-# CFLAGS = -g -O0 -fno-stack-protector
+CFLAGS = -Wall -Os -fno-stack-protector
+# CFLAGS = -Wall -O0 -g -fno-stack-protector
+LDFLAGS = -s
 NASM = nasm
 NASM_FLAGS = -f elf64
 
 OBJS = start.o syscalls.o wolol.o
 
-wolol: $(OBJS)
-	$(CC) $(CFLAGS) -static -nostdlib -nostartfiles -o $@ $^
+wolol: wolol.bin
+	objcopy --remove-section=.comment $< $@
+
+wolol.bin: $(OBJS)
+	$(LD) $(LDFLAGS) -o $@ $^
 
 clean:
-	rm -f $(OBJS)
+	rm -f $(OBJS) wolol wolol.bin
 
 wolol.o: wolol.c syscalls.h
 
