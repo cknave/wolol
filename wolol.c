@@ -183,11 +183,11 @@ static int parse_ip_address(char *ip_string_ptr, in_addr_t *ip_addr) {
 		if(number > 255) {
 			return -1;
 		}
-		// The first 3 digits must be separated by a '.'
+		// The first 3 octets must be separated by a '.'
 		if(i < 3 && *ptr != '.') {
 			return -1;
 		}
-		// The last digit must be followed by a '\0'
+		// The last octet must be followed by a '\0'
 		if(i == 3 && *ptr != '\0') {
 			return -1;
 		}
